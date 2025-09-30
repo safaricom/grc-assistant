@@ -49,6 +49,32 @@ services:
       - minio
     restart: always
 
+  # One-off service to run migrations using the build 'builder' stage (has dev deps)
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder
+    env_file:
+      - .env
+    command: npx drizzle-kit migrate --config ./drizzle.config.cjs
+    depends_on:
+      - postgres
+    restart: "no"
+
+  # One-off service to run the compiled seed script using the runtime/runner image
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runner
+    env_file:
+      - .env
+    command: node dist/lib/db/seed.js
+    depends_on:
+      - postgres
+    restart: "no"
+
   frontend:
     build:
       context: ./frontend
