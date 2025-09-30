@@ -17,14 +17,22 @@ async function seed() {
   });
 
   if (!existingAdmin) {
-    const adminPasswordHash = await bcrypt.hash("admin123", SALT_ROUNDS);
+    // Prefer a user-provided admin password via env var; otherwise generate one
+    const provided = process.env.ADMIN_PASSWORD;
+    const adminPlain = provided && provided.length > 0 ? provided : (Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6));
+    const adminPasswordHash = await bcrypt.hash(adminPlain, SALT_ROUNDS);
     await db.insert(users).values({
       email: adminEmail,
       name: "Admin User",
       passwordHash: adminPasswordHash,
       role: "admin",
     });
-    console.log("Admin user created: admin@grc.com / admin123");
+    if (provided) {
+      console.log("Admin user created: admin@grc.com (password from ADMIN_PASSWORD env)");
+    } else {
+      console.log("Admin user created: admin@grc.com (generated password)\nPlease note the generated password was printed to stdout for convenience but you should change it immediately in production.");
+      console.log(`Generated admin password: ${adminPlain}`);
+    }
   } else {
     console.log("Admin user already exists. Skipping.");
   }
