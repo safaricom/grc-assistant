@@ -19,8 +19,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-// Support both FRONTEND_URL and FRONTEND_ORIGIN env var names (some configs use one or the other)
-const frontendOrigin = process.env.FRONTEND_URL || process.env.FRONTEND_ORIGIN;
+const frontendOrigin = process.env.FRONTEND_URL;
 // If FRONTEND_URL is '*' or undefined, enable dynamic origin reflection for broader compatibility in deployments.
 if (!frontendOrigin || frontendOrigin === '*') {
   app.use(cors({ origin: true, credentials: true }));
