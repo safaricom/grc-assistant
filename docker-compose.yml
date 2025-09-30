@@ -60,7 +60,7 @@ services:
     command:
       - sh
       - -c
-      - 'node scripts/wait-for-db.js postgres 5432 && npx drizzle-kit migrate --config ./drizzle.config.cjs'
+      - 'node /app/scripts/wait-for-db.js postgres 5432 && npx drizzle-kit migrate --config ./drizzle.config.cjs'
     depends_on:
       - postgres
     restart: "no"
@@ -76,7 +76,7 @@ services:
     command:
       - sh
       - -c
-      - 'node scripts/wait-for-db.js postgres 5432 && node dist/lib/db/seed.js'
+      - 'node /app/scripts/wait-for-db.js postgres 5432 && node dist/lib/db/seed.js'
     depends_on:
       - postgres
     restart: "no"
