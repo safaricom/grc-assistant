@@ -19,10 +19,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
-  credentials: true,
-}));
+const frontendOrigin = process.env.FRONTEND_URL;
+// If FRONTEND_URL is '*' or undefined, enable dynamic origin reflection for broader compatibility in deployments.
+if (!frontendOrigin || frontendOrigin === '*') {
+  app.use(cors({ origin: true, credentials: true }));
+} else {
+  app.use(cors({ origin: frontendOrigin, credentials: true }));
+}
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
