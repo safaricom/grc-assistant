@@ -66,8 +66,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Build frontend assets to call backend on host port 3001 (accessible from browser)
-        VITE_API_HOST: ${VITE_API_HOST:-"http://localhost:3001"}
+        # Build frontend assets: use VITE_API_HOST if provided in .env (for docker-compose set to http://backend:3001)
+        # Otherwise leave empty so the frontend build uses a relative `/api` and the frontend container
+        # nginx can proxy /api to the backend service.
+        VITE_API_HOST: ${VITE_API_HOST}
     ports:
       - "80:80"
     depends_on:

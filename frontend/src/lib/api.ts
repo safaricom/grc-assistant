@@ -12,6 +12,7 @@ const API_BASE_URL = API_HOST
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
+  timeout: 10000, // 10s timeout to help detect hangs
   headers: {
     'Content-Type': 'application/json',
   },
@@ -21,7 +22,9 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = getToken();
-    if (token) {
+    if (token && config.headers) {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - axios types for headers can be loose here
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -31,13 +34,33 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Generic error handler
+// Generic error handler with improved diagnostics for network/CORS failures
 const handleError = (error: unknown) => {
-  if (axios.isAxiosError(error) && error.response) {
-    // Use the error message from the backend if available
-    throw new Error(error.response.data.error || error.response.data.message || 'An unknown API error occurred');
+  if (axios.isAxiosError(error)) {
+    // Timeout
+    if ((error as any).code === 'ECONNABORTED') {
+      console.error('API request timed out', { baseURL: axiosInstance.defaults.baseURL });
+      throw new Error(`Network timeout: no response from API (baseURL=${axiosInstance.defaults.baseURL})`);
+    }
+
+    // No response received (possible CORS preflight blocked, connection refused, DNS failure)
+    if (error.request && !error.response) {
+      console.error('Network/No response from API.', {
+        attemptedBaseURL: axiosInstance.defaults.baseURL,
+        originalError: error,
+      });
+      throw new Error(`Network error: no response from API. attempted baseURL=${axiosInstance.defaults.baseURL}`);
+    }
+
+    // Server responded with an error
+    if (error.response) {
+      const data = error.response.data as any;
+      const msg = data?.message || data?.error || `HTTP ${error.response.status}`;
+      throw new Error(msg);
+    }
   }
-  // Handle non-Axios errors or network errors
+
+  // Non-Axios errors
   if (error instanceof Error) {
     throw error;
   }
@@ -51,7 +74,7 @@ export const api = {
       const response = await axiosInstance.get(path);
       return response.data;
     } catch (error) {
-      handleError(error);
+      return handleError(error);
     }
   },
   post: async (path: string, body: any) => {
@@ -59,7 +82,7 @@ export const api = {
       const response = await axiosInstance.post(path, body);
       return response.data;
     } catch (error) {
-      handleError(error);
+      return handleError(error);
     }
   },
   postForm: async (path: string, formData: FormData) => {
@@ -72,7 +95,7 @@ export const api = {
       });
       return response.data;
     } catch (error) {
-      handleError(error);
+      return handleError(error);
     }
   },
   put: async (path: string, body: any) => {
@@ -80,7 +103,7 @@ export const api = {
       const response = await axiosInstance.put(path, body);
       return response.data;
     } catch (error) {
-      handleError(error);
+      return handleError(error);
     }
   },
   delete: async (path: string) => {
@@ -88,7 +111,9 @@ export const api = {
       const response = await axiosInstance.delete(path);
       return response.data;
     } catch (error) {
-      handleError(error);
+      return handleError(error);
     }
   },
 };
+
+export default axiosInstance;

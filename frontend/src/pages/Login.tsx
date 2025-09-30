@@ -41,6 +41,11 @@ const Login = () => {
 			});
 			navigate("/");
 		} catch (error) {
+			// Emit helpful debug information for network failures
+			console.error('Login failed', {
+				apiBase: (api as any).defaults?.baseURL,
+				error,
+			});
 			const message = error instanceof Error ? error.message : "An unknown error occurred";
 			toast({
 				title: "Error",
