@@ -3,8 +3,11 @@ import { getToken } from './auth'; // Import the getToken function
 
 // Prefer a build-time Vite variable `VITE_API_HOST` (e.g. https://api.example.com or http://backend:3001)
 // If present, use it and append /api. Fall back to VITE_API_BASE_URL for backward compatibility, then to localhost.
-const API_HOST = import.meta.env.VITE_API_HOST || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
-const API_BASE_URL = API_HOST.endsWith('/api') ? API_HOST : `${API_HOST.replace(/\/$/, '')}/api`;
+// Default to a relative path so an nginx frontend can proxy /api -> backend internally.
+const API_HOST = import.meta.env.VITE_API_HOST || import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = API_HOST
+  ? (API_HOST.endsWith('/api') ? API_HOST : `${API_HOST.replace(/\/$/, '')}/api`)
+  : '/api';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
