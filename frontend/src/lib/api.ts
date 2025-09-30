@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { getToken } from './auth'; // Import the getToken function
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+// Prefer a build-time Vite variable `VITE_API_HOST` (e.g. https://api.example.com or http://backend:3001)
+// If present, use it and append /api. Fall back to VITE_API_BASE_URL for backward compatibility, then to localhost.
+const API_HOST = import.meta.env.VITE_API_HOST || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = API_HOST.endsWith('/api') ? API_HOST : `${API_HOST.replace(/\/$/, '')}/api`;
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,

@@ -94,7 +94,8 @@ const Documents = () => {
   };
 
   const handleView = (docId: string) => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+    const API_HOST = import.meta.env.VITE_API_HOST || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+    const baseUrl = API_HOST.endsWith('/api') ? API_HOST : `${API_HOST.replace(/\/$/, '')}/api`;
     const token = getToken();
     if (!token) {
       toast({ title: 'Error', description: 'Authentication token not found.', variant: 'destructive' });

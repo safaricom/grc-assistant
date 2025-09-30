@@ -53,7 +53,8 @@ const Login = () => {
 
 	const handleDILogin = () => {
 		// Redirect to the backend endpoint that starts the DI OAuth flow
-		const diLoginUrl = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/auth/di/login`;
+		const API_HOST = import.meta.env.VITE_API_HOST || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+		const diLoginUrl = API_HOST.endsWith('/api') ? `${API_HOST}/auth/di/login` : `${API_HOST.replace(/\/$/, '')}/api/auth/di/login`;
 		window.location.href = diLoginUrl;
 	};
 
