@@ -11,6 +11,7 @@ const API_BASE_URL = API_HOST
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 15_000, // 15s timeout to fail fast on network issues
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -33,14 +34,31 @@ axiosInstance.interceptors.request.use(
 
 // Generic error handler
 const handleError = (error: unknown) => {
+  // Axios errors with a response: backend returned an error
   if (axios.isAxiosError(error) && error.response) {
-    // Use the error message from the backend if available
-    throw new Error(error.response.data.error || error.response.data.message || 'An unknown API error occurred');
+    const data = error.response.data as unknown;
+    let message = `API error: ${error.response.status}`;
+    if (data && typeof data === 'object') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = data as any;
+      message = d?.error || d?.message || message;
+    }
+    throw new Error(message);
   }
-  // Handle non-Axios errors or network errors
+
+  // Network errors / no response (CORS / DNS / server down)
+  if (axios.isAxiosError(error) && error.request && !error.response) {
+    const attempted = API_BASE_URL || window.location.origin;
+    throw new Error(
+      `Network Error: Failed to reach ${attempted}. This may be a CORS issue, the server may be down, or the URL is incorrect.`
+    );
+  }
+
+  // Other JS errors
   if (error instanceof Error) {
     throw error;
   }
+
   throw new Error('An unexpected error occurred');
 };
 
@@ -54,7 +72,7 @@ export const api = {
       handleError(error);
     }
   },
-  post: async (path: string, body: any) => {
+  post: async (path: string, body: unknown) => {
     try {
       const response = await axiosInstance.post(path, body);
       return response.data;
@@ -75,7 +93,7 @@ export const api = {
       handleError(error);
     }
   },
-  put: async (path: string, body: any) => {
+  put: async (path: string, body: unknown) => {
     try {
       const response = await axiosInstance.put(path, body);
       return response.data;

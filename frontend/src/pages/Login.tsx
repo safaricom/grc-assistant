@@ -41,6 +41,8 @@ const Login = () => {
 			});
 			navigate("/");
 		} catch (error) {
+			// Log diagnostics for network/CORS issues
+			console.error("Login error:", error);
 			const message = error instanceof Error ? error.message : "An unknown error occurred";
 			toast({
 				title: "Error",
