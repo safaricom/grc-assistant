@@ -56,4 +56,22 @@ Notes and tips
 - Environment variables are provided via `.env` referenced in `docker-compose.yml`. Keep secrets out of source control.
 - For development you may prefer mapping source code volumes into the containers and running the dev servers (not covered here).
 
+Docker one-off tasks (recommended)
+---------------------------------
+The compose setup defines dedicated one-off services that run migrations from the builder image (so dev tooling like drizzle-kit is available) and seeding from the runtime image.
+
+- Run migrations (uses the builder image with dev deps):
+
+```fish
+docker compose run --rm migrate
+```
+
+- Run the compiled seed (uses the runtime/runner image):
+
+```fish
+docker compose run --rm seed
+```
+
+These commands already wait for Postgres and use the compose service network (no additional env overrides required).
+
 ````
