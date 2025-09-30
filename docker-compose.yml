@@ -57,7 +57,10 @@ services:
       target: builder
     env_file:
       - .env
-    command: npx drizzle-kit migrate --config ./drizzle.config.cjs
+    command:
+      - sh
+      - -c
+      - 'node scripts/wait-for-db.js postgres 5432 && npx drizzle-kit migrate --config ./drizzle.config.cjs'
     depends_on:
       - postgres
     restart: "no"
@@ -70,7 +73,10 @@ services:
       target: runner
     env_file:
       - .env
-    command: node dist/lib/db/seed.js
+    command:
+      - sh
+      - -c
+      - 'node scripts/wait-for-db.js postgres 5432 && node dist/lib/db/seed.js'
     depends_on:
       - postgres
     restart: "no"
