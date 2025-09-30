@@ -31,47 +31,22 @@ docker compose logs -f backend frontend
 ```
 
 Database migrations and seeding
-- Run migrations inside the backend container using drizzle-kit:
+
+The backend container will automatically attempt to run Drizzle migrations when it starts. This avoids separate one-off migrate/seed services and is safer for simple deployments like a single EC2 instance.
+
+If you want the container to also run the seed script on first start, set the environment variable RUN_SEED=true in your `.env` before starting the stack. Example (seed will run inside the runtime image and use compiled JS in `dist`):
 
 ```fish
-# run migrations
-docker compose exec backend npm run db:migrate
-```
+# run migrations only (default behaviour handled at container start)
+docker compose up --build -d
 
-- Seed the database (uses compiled JS in `dist`):
-
-```fish
-# run seed (creates admin/user if missing)
-docker compose exec backend node dist/lib/db/seed.js
-```
-
-One-command setup (migrate + seed)
-
-```fish
+# explicitly run migrations + seed manually inside the backend container
 docker compose exec backend sh -c "npm run db:migrate && node dist/lib/db/seed.js"
 ```
 
 Notes and tips
-- The frontend is exposed on host port 80. the backend listens on port 3001.
+- The frontend is exposed on host port 80. The backend listens on port 3001.
 - Environment variables are provided via `.env` referenced in `docker-compose.yml`. Keep secrets out of source control.
 - For development you may prefer mapping source code volumes into the containers and running the dev servers (not covered here).
-
-Docker one-off tasks (recommended)
----------------------------------
-The compose setup defines dedicated one-off services that run migrations from the builder image (so dev tooling like drizzle-kit is available) and seeding from the runtime image.
-
-- Run migrations (uses the builder image with dev deps):
-
-```fish
-docker compose run --rm migrate
-```
-
-- Run the compiled seed (uses the runtime/runner image):
-
-```fish
-docker compose run --rm seed
-```
-
-These commands already wait for Postgres and use the compose service network (no additional env overrides required).
 
 ````

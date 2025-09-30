@@ -32,9 +32,20 @@ WORKDIR /app
 # Copy only production node_modules and built output
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+# Copy runtime helper scripts (wait-for-db) and runtime drizzle configs from builder
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/drizzle.config.cjs ./drizzle.config.cjs
+COPY --from=builder /app/drizzle.config.js ./drizzle.config.js
+# include generated drizzle migration files and meta info so runtime can run migrations
+COPY --from=builder /app/drizzle ./drizzle
 COPY package.json ./
 
 ENV NODE_ENV=production
 EXPOSE 3001
 
-CMD ["node", "dist/index.js"]
+# Copy startup script and make it executable
+COPY --from=builder /app/scripts/start.sh ./scripts/start.sh
+RUN chmod +x ./scripts/start.sh
+
+# Default command: run startup script that will apply migrations/seeds then start the app
+CMD ["/bin/sh", "./scripts/start.sh"]

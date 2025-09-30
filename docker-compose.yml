@@ -13,7 +13,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -51,49 +55,11 @@ services:
     ports:
       - "3001:3001"
     depends_on:
-      - postgres
-      - minio
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
     restart: always
-
-  # One-off service to run migrations using the build 'builder' stage (has dev deps)
-  migrate:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: builder
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-    command:
-      - sh
-      - -c
-      - "node /app/scripts/wait-for-db.js postgres 5432 && npx drizzle-kit migrate --config ./drizzle.config.cjs"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
-
-  # One-off service to run the compiled seed script using the runtime/runner image
-  seed:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: runner
-    env_file:
-      - .env
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
-    command:
-      - sh
-      - -c
-      - "node /app/scripts/wait-for-db.js postgres 5432 && node dist/lib/db/seed.js"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: "no"
 
   frontend:
     build:
