@@ -12,6 +12,7 @@ import diAuthRoutes from './routes/diAuthRoutes';
 import userRoutes from './routes/userRoutes';
 import profileRoutes from './routes/profileRoutes';
 import documentRoutes from './routes/documentRoutes';
+import chatRoutes from './routes/chatRoutes';
 import { ensureBucketExists } from './lib/s3';
 import { connectDb } from './lib/db';
 
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health endpoint: minimal DB check to confirm server & DB connectivity
 import { pool } from './lib/db';

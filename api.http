@@ -75,3 +75,16 @@ Authorization: Bearer {{authToken}}
 @userIdToDelete = "user-id-to-delete"
 DELETE {{baseUrl}}/users/{{userIdToDelete}}
 Authorization: Bearer {{authToken}}
+
+###
+# Chat: Send a message to the GRC Assistant
+# This endpoint proxies the request to the external RAG API
+# No user authentication required - backend handles Cognito auth internally
+POST {{baseUrl}}/chat
+Content-Type: application/json
+
+{
+  "message": "Who approves security exceptions and what is the process?",
+  "session_id": "test-session-123",
+  "include_sources": true
+}
