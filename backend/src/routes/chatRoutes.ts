@@ -1,7 +1,11 @@
 import { Router } from 'express';
 import { sendChatMessage, getChatSessions, getChatHistory, deleteChatSession } from '../controllers/chatController';
+import { isAuthenticated } from '../middleware/auth';
 
 const router = Router();
+
+// All chat routes require authentication
+router.use(isAuthenticated);
 
 /**
  * POST /api/chat
