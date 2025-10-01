@@ -237,7 +237,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="h-screen flex">
+    <div className="h-screen flex overflow-hidden">
       <ChatSidebar 
         sessions={sessions}
         currentSessionId={currentSession?.id || null}
@@ -247,7 +247,7 @@ export default function Chat() {
         onRenameSession={handleRenameSession}
       />
 
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="flex-1 flex flex-col min-h-0">
         {currentSession ? (
           <>
             <ChatMessages messages={currentSession.messages as any} isLoading={isLoading} />
@@ -260,7 +260,9 @@ export default function Chat() {
           </>
         ) : (
           <>
-            <WelcomeScreen onNewChat={createNewChat} />
+            <div className="flex-1 overflow-y-auto">
+              <WelcomeScreen onNewChat={createNewChat} />
+            </div>
             <MessageInput 
               message={message}
               onMessageChange={setMessage}

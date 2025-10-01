@@ -154,7 +154,13 @@ export const sendChatMessage = async (req: Request, res: Response) => {
       session_id: sessionId,
     });
   } catch (error: any) {
-    console.error('Chat API error:', error.response?.data || error.message);
+    console.error('Chat API error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      code: error.code,
+      stack: error.stack?.split('\n').slice(0, 3).join('\n')
+    });
     
     if (axios.isAxiosError(error)) {
       if (error.code === 'ECONNABORTED') {
@@ -165,22 +171,26 @@ export const sendChatMessage = async (req: Request, res: Response) => {
       
       if (error.response) {
         // Forward error from external API
+        const errorMsg = error.response.data?.error || error.response.data?.message || 'External API error';
+        console.error(`External API returned ${error.response.status}: ${errorMsg}`);
         return res.status(error.response.status).json({
-          error: error.response.data?.error || error.response.data?.message || 'External API error',
+          error: errorMsg,
           details: error.response.data,
         });
       }
       
       if (error.request) {
+        console.error('No response received from external API');
         return res.status(503).json({ 
           error: 'Unable to reach chat service. Please try again later.' 
         });
       }
     }
 
+    console.error('Unexpected error in chat controller:', error.message);
     return res.status(500).json({ 
       error: 'An error occurred while processing your message',
-      details: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 };

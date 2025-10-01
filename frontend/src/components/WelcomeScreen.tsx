@@ -7,7 +7,7 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onNewChat }: WelcomeScreenProps) {
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
+    <div className="flex items-center justify-center p-6 min-h-[400px]">
       <div className="text-center max-w-md">
         <div className="w-16 h-16 bg-gradient-hero rounded-full flex items-center justify-center mx-auto mb-4 shadow-glow">
           <Plus className="w-8 h-8 text-white" />

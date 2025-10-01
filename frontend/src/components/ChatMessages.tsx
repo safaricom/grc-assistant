@@ -11,14 +11,16 @@ interface ChatMessagesProps {
 
 export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Auto-scroll to bottom when new messages arrive
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-hidden">
-      <ScrollArea className="h-full">
+    <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-6">
           <div className="max-w-4xl mx-auto space-y-6">
             {messages.map((msg) => (
