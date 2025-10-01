@@ -117,10 +117,13 @@ export default function Chat() {
       // Send message to backend (which will call RAG API and save to DB)
       console.log('Sending message to server proxy /api/chat');
 
+      // Only send session_id if it's a real UUID (not temporary Date.now() ID)
+      const isNewSession = !session.id || session.id === Date.now().toString() || session.id.length < 20;
+      
       const data = await api.post('/chat', {
         message: content,
-        session_id: session.id,
-        session_title: session.id ? undefined : content.slice(0, 50) + (content.length > 50 ? '...' : ''),
+        session_id: isNewSession ? undefined : session.id,
+        session_title: isNewSession ? content.slice(0, 50) + (content.length > 50 ? '...' : '') : undefined,
         include_sources: true
       });
 
@@ -132,7 +135,7 @@ export default function Chat() {
       });
 
       // If new session was created, reload sessions and load the new session
-      if (!session.id || session.id === Date.now().toString()) {
+      if (isNewSession) {
         await loadSessions();
         await loadSessionHistory(data.session_id);
       } else {
