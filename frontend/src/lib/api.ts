@@ -77,21 +77,22 @@ export const api = {
       return handleError(error);
     }
   },
-  post: async (path: string, body: any) => {
+  post: async (path: string, body: any, config?: any) => {
     try {
-      const response = await axiosInstance.post(path, body);
+      const response = await axiosInstance.post(path, body, config);
       return response.data;
     } catch (error) {
       return handleError(error);
     }
   },
-  postForm: async (path: string, formData: FormData) => {
+  postForm: async (path: string, formData: FormData, config?: any) => {
     try {
-      // For form data, we need a different header config
+      // For form data, allow callers to pass additional axios config
       const response = await axiosInstance.post(path, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        ...(config || {}),
       });
       return response.data;
     } catch (error) {

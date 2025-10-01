@@ -32,7 +32,9 @@ const Login = () => {
 		setLoading(true);
 
 		try {
-			const { user, token } = await api.post('/auth/login', { email, password });
+			// Use the backwards-compatible credentials callback endpoint the backend exposes
+			// (also used in api.http). This avoids discrepancies between environments.
+			const { user, token } = await api.post('/auth/callback/credentials', { email, password });
 			login(user, token, rememberMe);
 			setUser(user);
 			toast({
@@ -40,13 +42,37 @@ const Login = () => {
 				description: "Logged in successfully!",
 			});
 			navigate("/");
-		} catch (error) {
+		} catch (error: unknown) {
 			// Emit helpful debug information for network failures
-			console.error('Login failed', {
+			const debugInfo: any = {
 				apiBase: (api as any).defaults?.baseURL,
 				error,
-			});
-			const message = error instanceof Error ? error.message : "An unknown error occurred";
+			};
+			if ((error as any)?.isAxiosError) {
+				debugInfo.axios = {
+					request: (error as any)?.request,
+					response: (error as any)?.response,
+					code: (error as any)?.code,
+				};
+			}
+			console.error('Login failed', debugInfo);
+			// If there's no response (network/CORS), attempt a retry without credentials
+			const looksLikeNoResponse = (error as any)?.request && !(error as any)?.response;
+			if (looksLikeNoResponse) {
+				console.warn('No response from API on login; retrying without credentials (withCredentials=false) to diagnose CORS issues.');
+				try {
+					const { user, token } = await api.post('/auth/callback/credentials', { email, password }, { withCredentials: false });
+					login(user, token, rememberMe);
+					setUser(user);
+					toast({ title: 'Success', description: 'Logged in successfully (retry without credentials).' });
+					navigate('/');
+					return;
+				} catch (retryErr) {
+					console.error('Retry without credentials failed', { retryErr });
+					// fall through to show the original error to the user
+				}
+			}
+			const message = (error as any)?.message || "An unknown error occurred";
 			toast({
 				title: "Error",
 				description: message || "Login failed. Check credentials or if the server is running.",

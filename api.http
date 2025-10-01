@@ -1,6 +1,6 @@
 @prodUrl = http://ec2-34-253-237-129.eu-west-1.compute.amazonaws.com:3001/api
 @localUrl = http://localhost:3001/api
-@baseUrl = {{localUrl}}
+@baseUrl = {{prodUrl}}
 @authToken = ""
 
 ###
@@ -16,8 +16,8 @@ POST {{baseUrl}}/auth/callback/credentials
 Content-Type: application/json
 
 {
-  "email": "admin@example.com",
-  "password": "password123"
+  "email": "admin@grc.com",
+  "password": "admin@321"
 }
 
 ###
