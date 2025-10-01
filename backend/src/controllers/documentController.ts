@@ -43,10 +43,16 @@ export const getDocuments = async (req: Request, res: Response) => {
       },
       orderBy: (documents, { desc }) => [desc(documents.createdAt)],
     });
+    console.log(`Successfully fetched ${allDocuments.length} documents`);
     res.json(allDocuments);
   } catch (error) {
     console.error('Error fetching documents:', error);
-    res.status(500).json({ message: 'Failed to fetch documents' });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Detailed error:', errorMessage);
+    res.status(500).json({ 
+      message: 'Failed to fetch documents',
+      error: errorMessage 
+    });
   }
 };
 

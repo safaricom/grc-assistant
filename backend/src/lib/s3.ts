@@ -17,8 +17,23 @@ const {
   MINIO_USE_SSL
 } = process.env;
 
+console.log('MinIO Configuration:', {
+  endpoint: MINIO_ENDPOINT,
+  port: MINIO_PORT,
+  bucket: MINIO_BUCKET,
+  useSSL: MINIO_USE_SSL,
+  hasAccessKey: !!MINIO_ACCESS_KEY,
+  hasSecretKey: !!MINIO_SECRET_KEY,
+});
+
 if (!MINIO_ENDPOINT || !MINIO_PORT || !MINIO_ACCESS_KEY || !MINIO_SECRET_KEY || !MINIO_BUCKET) {
-  throw new Error('MinIO environment variables are not fully configured.');
+  const missing = [];
+  if (!MINIO_ENDPOINT) missing.push('MINIO_ENDPOINT');
+  if (!MINIO_PORT) missing.push('MINIO_PORT');
+  if (!MINIO_ACCESS_KEY) missing.push('MINIO_ACCESS_KEY');
+  if (!MINIO_SECRET_KEY) missing.push('MINIO_SECRET_KEY');
+  if (!MINIO_BUCKET) missing.push('MINIO_BUCKET');
+  throw new Error(`MinIO environment variables are not fully configured. Missing: ${missing.join(', ')}`);
 }
 
 const s3Client = new S3Client({
