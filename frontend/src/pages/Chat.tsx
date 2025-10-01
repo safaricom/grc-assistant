@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ChatSidebar } from "@/components/ChatSidebar";
 import { ChatMessages } from "@/components/ChatMessages";
 import { MessageInput } from "@/components/MessageInput";
 import { WelcomeScreen } from "@/components/WelcomeScreen";
+import { api } from "@/lib/api";
 import type { Message, ChatSession } from "@/types/chat";
 
 export default function Chat() {
@@ -13,28 +14,68 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    // Load chat sessions from localStorage
-    const savedSessions = localStorage.getItem('grc-chat-sessions');
-    if (savedSessions) {
-      const parsed = JSON.parse(savedSessions) as ChatSession[];
-      const processed = parsed.map((session) => ({
-        ...session,
-        created_at: new Date(session.created_at),
-        updated_at: new Date(session.updated_at),
-        messages: session.messages.map((msg) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }))
+  // Load chat sessions from backend on mount
+  const loadSessions = useCallback(async () => {
+    try {
+      const data = await api.get('/chat/sessions');
+      // Convert API response to display format
+      const processed = data.map((session: any) => ({
+        id: session.id,
+        title: session.title,
+        messages: session.messages?.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          role: msg.role,
+          timestamp: new Date(msg.timestamp),
+        })) || [],
+        created_at: new Date(session.createdAt),
+        updated_at: new Date(session.updatedAt),
       }));
       setSessions(processed);
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      // Don't show error toast on initial load - might just be no sessions yet
     }
   }, []);
 
   useEffect(() => {
-    // Save sessions to localStorage
-    localStorage.setItem('grc-chat-sessions', JSON.stringify(sessions));
-  }, [sessions]);
+    loadSessions();
+  }, [loadSessions]);
+
+  // Load full chat history when a session is selected
+  const loadSessionHistory = async (sessionId: string) => {
+    try {
+      const data = await api.get(`/chat/history/${sessionId}`);
+      const messages: Message[] = data.messages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        role: msg.role,
+        timestamp: new Date(msg.timestamp),
+      }));
+
+      const session: ChatSession = {
+        id: data.session.id,
+        title: data.session.title,
+        messages,
+        created_at: new Date(data.session.createdAt),
+        updated_at: new Date(data.session.updatedAt),
+      };
+
+      setCurrentSession(session);
+
+      // Update in sessions list
+      setSessions(prev => prev.map(s => 
+        s.id === session.id ? session : s
+      ));
+    } catch (error) {
+      console.error('Failed to load session history:', error);
+      toast({
+        title: 'Failed to load chat history',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const sendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -73,52 +114,47 @@ export default function Chat() {
       setCurrentSession(updatedSession);
       setSessions(prev => prev.map(s => s.id === session!.id ? updatedSession : s));
 
-      // Send message to server-side proxy which will add credentials and call the chat API.
+      // Send message to backend (which will call RAG API and save to DB)
       console.log('Sending message to server proxy /api/chat');
 
-      const response = await fetch(`/api/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          message: content,
-          session_id: session.id,
-          include_sources: true
-        })
+      const data = await api.post('/chat', {
+        message: content,
+        session_id: session.id,
+        session_title: session.id ? undefined : content.slice(0, 50) + (content.length > 50 ? '...' : ''),
+        include_sources: true
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Chat API response:', response.status, errorText);
-        // Include server error message if present
-        throw new Error(`Failed to get response: ${response.status} - ${errorText}`);
-      }
 
-      const data = await response.json();
       console.log('Chat response received:', { 
         responseLength: data.response?.length, 
         sources: data.sources?.length,
-        processingTime: data.processing_time_ms 
+        processingTime: data.processing_time,
+        sessionId: data.session_id
       });
 
-      // Add assistant message
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.response,
-        role: 'assistant',
-        timestamp: new Date(),
-        sources: data.sources,
-        processing_time: data.processing_time_ms
-      };
+      // If new session was created, reload sessions and load the new session
+      if (!session.id || session.id === Date.now().toString()) {
+        await loadSessions();
+        await loadSessionHistory(data.session_id);
+      } else {
+        // Add assistant message for existing session
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: data.response,
+          role: 'assistant',
+          timestamp: new Date(),
+          sources: data.sources,
+          processing_time: data.processing_time
+        };
 
-      const finalSession = {
-        ...updatedSession,
-        messages: [...updatedSession.messages, assistantMessage],
-        updated_at: new Date()
-      };
+        const finalSession = {
+          ...updatedSession,
+          messages: [...updatedSession.messages, assistantMessage],
+          updated_at: new Date()
+        };
 
-      setCurrentSession(finalSession);
-      setSessions(prev => prev.map(s => s.id === session!.id ? finalSession : s));
+        setCurrentSession(finalSession as any);
+        setSessions(prev => prev.map(s => s.id === session!.id ? finalSession as any : s));
+      }
 
     } catch (error: unknown) {
       // Better error reporting: show server response or error message if available
@@ -158,35 +194,41 @@ export default function Chat() {
   };
 
   const createNewChat = () => {
-    // Reset message input and create/select a fresh session so the input area is shown
+    // Clear current session to show welcome screen
     setMessage("");
-
-    // Create a new session and select it immediately
-    const newSession: ChatSession = {
-      id: Date.now().toString(),
-      title: "New Chat",
-      messages: [],
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
-
-    setCurrentSession(newSession);
-    setSessions(prev => [newSession, ...prev]);
+    setCurrentSession(null);
 
     toast({
       title: "New Chat Ready",
-      description: "Connected to GRC Assistant. You can start asking questions."
+      description: "Start typing to begin a new conversation."
     });
   };
 
-  const selectSession = (session: ChatSession) => {
-    setCurrentSession(session);
+  const selectSession = async (session: ChatSession) => {
+    // Load full history for the selected session
+    await loadSessionHistory(session.id);
   };
 
-  const deleteSession = (sessionId: string) => {
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    if (currentSession?.id === sessionId) {
-      setCurrentSession(null);
+  const deleteSession = async (sessionId: string) => {
+    try {
+      await api.delete(`/chat/session/${sessionId}`);
+      
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (currentSession?.id === sessionId) {
+        setCurrentSession(null);
+      }
+
+      toast({
+        title: "Chat Deleted",
+        description: "Chat session has been deleted successfully."
+      });
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      toast({
+        title: 'Failed to delete session',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -213,7 +255,7 @@ export default function Chat() {
       <div className="flex-1 flex flex-col h-screen">
         {currentSession ? (
           <>
-            <ChatMessages messages={currentSession.messages} isLoading={isLoading} />
+            <ChatMessages messages={currentSession.messages as any} isLoading={isLoading} />
             <MessageInput 
               message={message}
               onMessageChange={setMessage}

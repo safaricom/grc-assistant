@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
+import { db } from '../lib/db';
+import { chatSessions, chatMessages } from '../lib/db/schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 // Cache for the Cognito access token
 let cognitoAccessToken: string | null = null;
@@ -56,14 +59,19 @@ async function getCognitoAccessToken(): Promise<string> {
 
 /**
  * POST /api/chat
- * Proxies chat requests to the external RAG API
+ * Proxies chat requests to the external RAG API and saves conversation history
  */
 export const sendChatMessage = async (req: Request, res: Response) => {
   try {
-    const { message, session_id, include_sources } = req.body;
+    const { message, session_id, include_sources, session_title } = req.body;
+    const userId = (req.user as any)?.id;
 
     if (!message || typeof message !== 'string') {
       return res.status(400).json({ error: 'Message is required' });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Validate environment variables
@@ -74,6 +82,36 @@ export const sendChatMessage = async (req: Request, res: Response) => {
       });
     }
 
+    // Get or create session
+    let sessionId = session_id;
+    if (!sessionId) {
+      // Create new session
+      const newSession = await db.insert(chatSessions).values({
+        userId,
+        title: session_title || message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+      }).returning();
+      sessionId = newSession[0].id;
+    } else {
+      // Verify session belongs to user
+      const session = await db.query.chatSessions.findFirst({
+        where: and(
+          eq(chatSessions.id, sessionId),
+          eq(chatSessions.userId, userId)
+        ),
+      });
+      
+      if (!session) {
+        return res.status(403).json({ error: 'Session not found or access denied' });
+      }
+    }
+
+    // Save user message
+    await db.insert(chatMessages).values({
+      sessionId,
+      content: message,
+      role: 'user',
+    });
+
     // Get Cognito access token
     const accessToken = await getCognitoAccessToken();
 
@@ -82,7 +120,7 @@ export const sendChatMessage = async (req: Request, res: Response) => {
       `${API_HOST}/Sandbox/api/v1/chat`,
       {
         message,
-        session_id: session_id || Date.now().toString(),
+        session_id: sessionId,
         include_sources: include_sources !== false, // Default to true
       },
       {
@@ -95,8 +133,26 @@ export const sendChatMessage = async (req: Request, res: Response) => {
       }
     );
 
-    // Return the response from the chat API
-    return res.json(chatResponse.data);
+    // Extract assistant response
+    const assistantMessage = chatResponse.data.response || chatResponse.data.message || 'No response';
+
+    // Save assistant message
+    await db.insert(chatMessages).values({
+      sessionId,
+      content: assistantMessage,
+      role: 'assistant',
+    });
+
+    // Update session updated_at timestamp
+    await db.update(chatSessions)
+      .set({ updatedAt: new Date() })
+      .where(eq(chatSessions.id, sessionId));
+
+    // Return response with session info
+    return res.json({
+      ...chatResponse.data,
+      session_id: sessionId,
+    });
   } catch (error: any) {
     console.error('Chat API error:', error.response?.data || error.message);
     
@@ -124,6 +180,118 @@ export const sendChatMessage = async (req: Request, res: Response) => {
 
     return res.status(500).json({ 
       error: 'An error occurred while processing your message',
+      details: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/chat/sessions
+ * Get all chat sessions for the authenticated user
+ */
+export const getChatSessions = async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const sessions = await db.query.chatSessions.findMany({
+      where: eq(chatSessions.userId, userId),
+      orderBy: [desc(chatSessions.updatedAt)],
+      with: {
+        messages: {
+          limit: 1,
+          orderBy: [desc(chatMessages.timestamp)],
+        },
+      },
+    });
+
+    return res.json(sessions);
+  } catch (error: any) {
+    console.error('Error fetching chat sessions:', error);
+    return res.status(500).json({ 
+      error: 'Failed to fetch chat sessions',
+      details: error.message,
+    });
+  }
+};
+
+/**
+ * GET /api/chat/history/:sessionId
+ * Get all messages for a specific chat session
+ */
+export const getChatHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { sessionId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Verify session belongs to user
+    const session = await db.query.chatSessions.findFirst({
+      where: and(
+        eq(chatSessions.id, sessionId),
+        eq(chatSessions.userId, userId)
+      ),
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Get all messages for this session
+    const messages = await db.query.chatMessages.findMany({
+      where: eq(chatMessages.sessionId, sessionId),
+      orderBy: [chatMessages.timestamp],
+    });
+
+    return res.json({
+      session,
+      messages,
+    });
+  } catch (error: any) {
+    console.error('Error fetching chat history:', error);
+    return res.status(500).json({ 
+      error: 'Failed to fetch chat history',
+      details: error.message,
+    });
+  }
+};
+
+/**
+ * DELETE /api/chat/session/:sessionId
+ * Delete a chat session (cascade deletes messages)
+ */
+export const deleteChatSession = async (req: Request, res: Response) => {
+  try {
+    const userId = (req.user as any)?.id;
+    const { sessionId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Verify session belongs to user and delete
+    const result = await db.delete(chatSessions)
+      .where(and(
+        eq(chatSessions.id, sessionId),
+        eq(chatSessions.userId, userId)
+      ))
+      .returning();
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    return res.json({ message: 'Session deleted successfully' });
+  } catch (error: any) {
+    console.error('Error deleting chat session:', error);
+    return res.status(500).json({ 
+      error: 'Failed to delete chat session',
       details: error.message,
     });
   }

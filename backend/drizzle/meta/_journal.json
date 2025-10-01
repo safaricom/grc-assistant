@@ -30,6 +30,13 @@
       "when": 1759304000000,
       "tag": "0003_create_documents_table",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1759305000000,
+      "tag": "0004_create_chat_history_table",
+      "breakpoints": true
     }
   ]
 }
