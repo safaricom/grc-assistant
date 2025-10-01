@@ -57,24 +57,40 @@ export const getDocuments = async (req: Request, res: Response) => {
 };
 
 export const uploadDocument = async (req: Request, res: Response) => {
-  const files = req.files as Express.Multer.File[];
-  if (!files || files.length === 0) {
-    return res.status(400).json({ message: 'No files uploaded.' });
-  }
-
-  const user = req.user as { id: string };
-  const { v4: uuidv4 } = await import('uuid');
-  
   const uploadedDocuments: { storageKey: string; originalName: string }[] = [];
   
   try {
+    console.log('Upload request received');
+    console.log('Files:', req.files);
+    console.log('User:', req.user);
+    
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      console.log('No files in request');
+      return res.status(400).json({ message: 'No files uploaded.' });
+    }
+
+    console.log(`Processing ${files.length} file(s)`);
+
+    const user = req.user as { id: string };
+    if (!user || !user.id) {
+      console.error('User not authenticated or missing ID');
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+    
+    console.log(`User ID: ${user.id}`);
+    const { v4: uuidv4 } = await import('uuid');
+    
     const newDocuments = await db.transaction(async (tx) => {
       const documentPromises = files.map(async (file) => {
+        console.log(`Processing file: ${file.originalname}, size: ${file.size}, type: ${file.mimetype}`);
         const fileExtension = path.extname(file.originalname);
         const storageKey = `documents/${uuidv4()}${fileExtension}`;
 
+        console.log(`Uploading to MinIO: ${storageKey}`);
         // Upload to S3
         await uploadFile(storageKey, file.buffer, file.mimetype);
+        console.log(`Successfully uploaded to MinIO: ${storageKey}`);
         uploadedDocuments.push({ storageKey, originalName: file.originalname });
 
         // Prepare insert values
@@ -93,26 +109,37 @@ export const uploadDocument = async (req: Request, res: Response) => {
         return [];
       }
 
+      console.log(`Inserting ${documentsToInsert.length} document(s) into database`);
       // Insert all document records into the database
-      return tx.insert(documents).values(documentsToInsert).returning();
+      const result = await tx.insert(documents).values(documentsToInsert).returning();
+      console.log(`Successfully inserted ${result.length} document(s) into database`);
+      return result;
     });
 
+    console.log('Upload completed successfully');
     res.status(201).json(newDocuments);
   } catch (error) {
     console.error('Error uploading documents:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    console.error('Error details:', errorMessage);
+    console.error('Error stack:', errorStack);
 
     // If there's an error, clean up all files that were successfully uploaded to S3
     if (uploadedDocuments.length > 0) {
       console.log(`Cleaning up ${uploadedDocuments.length} S3 objects due to an error.`);
-      const cleanupPromises = uploadedDocuments.map(doc => 
-        deleteFile(doc.storageKey).catch(cleanupError => {
+      const cleanupPromises = uploadedDocuments.map((doc: { storageKey: string; originalName: string }) => 
+        deleteFile(doc.storageKey).catch((cleanupError: Error) => {
           console.error(`Failed to cleanup S3 object ${doc.storageKey} for ${doc.originalName}:`, cleanupError);
         })
       );
       await Promise.all(cleanupPromises);
     }
 
-    res.status(500).json({ message: 'Failed to upload documents' });
+    res.status(500).json({ 
+      message: 'Failed to upload documents',
+      error: errorMessage 
+    });
   }
 };
 

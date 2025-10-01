@@ -75,14 +75,22 @@ export const ensureBucketExists = async (retries = 5, delay = 3000) => {
   }
 };
 
-export const uploadFile = (storageKey: string, fileBuffer: Buffer, mimetype: string) => {
-  const params = {
-    Bucket: MINIO_BUCKET!,
-    Key: storageKey,
-    Body: fileBuffer,
-    ContentType: mimetype,
-  };
-  return s3Client.send(new PutObjectCommand(params));
+export const uploadFile = async (storageKey: string, fileBuffer: Buffer, mimetype: string) => {
+  try {
+    console.log(`Uploading file to MinIO: ${storageKey}, size: ${fileBuffer.length} bytes, type: ${mimetype}`);
+    const params = {
+      Bucket: MINIO_BUCKET!,
+      Key: storageKey,
+      Body: fileBuffer,
+      ContentType: mimetype,
+    };
+    const result = await s3Client.send(new PutObjectCommand(params));
+    console.log(`File uploaded successfully: ${storageKey}`);
+    return result;
+  } catch (error) {
+    console.error(`Failed to upload file to MinIO: ${storageKey}`, error);
+    throw error;
+  }
 };
 
 export const deleteFile = (storageKey: string) => {
