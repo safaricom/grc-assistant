@@ -2,6 +2,9 @@ import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import { users } from "./schema";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcrypt";
 import path from "path";
 
 const { POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT } = process.env;
@@ -42,4 +45,56 @@ export const connectDb = async () => {
   const migrationsFolder = path.join(__dirname, "../../../drizzle");
   await migrate(db, { migrationsFolder });
   console.log("Database migrations completed.");
+
+  // Seed initial data
+  await seedDatabase();
 };
+
+// Seed function to create initial users
+async function seedDatabase() {
+  const SALT_ROUNDS = 10;
+
+  console.log("Checking for initial data...");
+
+  // Create admin user if not exists
+  const adminEmail = "admin@grc.com";
+  const existingAdmin = await db.query.users.findFirst({
+    where: (fields: any) => eq(fields.email, adminEmail),
+  });
+
+  if (!existingAdmin) {
+    const provided = process.env.ADMIN_PASSWORD;
+    const adminPlain = provided && provided.length > 0 ? provided : "admin@321";
+    const adminPasswordHash = await bcrypt.hash(adminPlain, SALT_ROUNDS);
+    await db.insert(users).values({
+      email: adminEmail,
+      name: "Admin User",
+      passwordHash: adminPasswordHash,
+      role: "admin",
+    });
+    console.log(`Admin user created: ${adminEmail}`);
+  } else {
+    console.log("Admin user already exists.");
+  }
+
+  // Create sample user if not exists
+  const sampleEmail = "user@grc.com";
+  const existingUser = await db.query.users.findFirst({
+    where: (fields: any) => eq(fields.email, sampleEmail),
+  });
+
+  if (!existingUser) {
+    const userPasswordHash = await bcrypt.hash("user123", SALT_ROUNDS);
+    await db.insert(users).values({
+      email: sampleEmail,
+      name: "Sample User",
+      passwordHash: userPasswordHash,
+      role: "user",
+    });
+    console.log(`Sample user created: ${sampleEmail}`);
+  } else {
+    console.log("Sample user already exists.");
+  }
+
+  console.log("Database seeding completed.");
+}
