@@ -40,7 +40,12 @@ axiosInstance.interceptors.response.use(
   (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       // Token is invalid or user no longer exists - force logout
-      console.warn('[API] 401 Unauthorized - logging out user');
+      const errorMessage = error.response?.data?.error || 'Session expired';
+      console.warn('[API] 401 Unauthorized - logging out user:', errorMessage);
+      
+      // Store error message in sessionStorage to show on login page
+      sessionStorage.setItem('logoutReason', errorMessage);
+      
       logout();
       // Redirect to login page
       if (window.location.pathname !== '/login') {

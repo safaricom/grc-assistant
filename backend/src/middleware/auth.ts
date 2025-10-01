@@ -44,9 +44,9 @@ export const isAuthenticated = async (req: Request, res: Response, next: NextFun
     });
 
     if (!userExists) {
-      console.log(`[AUTH] Token valid but user not found in DB: ${decoded.email} (${decoded.id})`);
+      console.log(`[AUTH] Token valid but user not found in DB: ${decoded.email} (${decoded.id}). This usually means the database was reset or the user was deleted. User needs to log in again.`);
       return res.status(401).json({ 
-        error: "User account no longer exists. Please log in again.",
+        error: "Your session is invalid. Please log in again.",
         code: "USER_NOT_FOUND"
       });
     }

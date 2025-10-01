@@ -27,6 +27,19 @@ const Login = () => {
 	const { toast } = useToast();
 	const { setUser } = useAuth();
 
+	// Show logout reason if user was auto-logged out
+	React.useEffect(() => {
+		const logoutReason = sessionStorage.getItem('logoutReason');
+		if (logoutReason) {
+			sessionStorage.removeItem('logoutReason');
+			toast({
+				title: "Session Expired",
+				description: logoutReason,
+				variant: "destructive",
+			});
+		}
+	}, [toast]);
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setLoading(true);
