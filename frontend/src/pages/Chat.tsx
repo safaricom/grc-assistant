@@ -197,11 +197,6 @@ export default function Chat() {
     // Clear current session to show welcome screen
     setMessage("");
     setCurrentSession(null);
-
-    toast({
-      title: "New Chat Ready",
-      description: "Start typing to begin a new conversation."
-    });
   };
 
   const selectSession = async (session: ChatSession) => {
@@ -264,7 +259,15 @@ export default function Chat() {
             />
           </>
         ) : (
-          <WelcomeScreen onNewChat={createNewChat} />
+          <>
+            <WelcomeScreen onNewChat={createNewChat} />
+            <MessageInput 
+              message={message}
+              onMessageChange={setMessage}
+              onSendMessage={handleSendMessage}
+              isLoading={isLoading}
+            />
+          </>
         )}
       </div>
     </div>
