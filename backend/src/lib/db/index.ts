@@ -1,6 +1,8 @@
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import * as schema from "./schema";
+import path from "path";
 
 const { POSTGRES_HOST, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT } = process.env;
 
@@ -34,4 +36,10 @@ export const connectDb = async () => {
 
   db = drizzle(pool, { schema });
   console.log("Database connected successfully.");
+
+  // Run migrations
+  console.log("Running database migrations...");
+  const migrationsFolder = path.join(__dirname, "../../../drizzle");
+  await migrate(db, { migrationsFolder });
+  console.log("Database migrations completed.");
 };
