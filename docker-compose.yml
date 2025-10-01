@@ -50,8 +50,7 @@ services:
       POSTGRES_PORT: "5432"
       MINIO_ENDPOINT: minio
       MINIO_PORT: "9000"
-      # Allow browser on host to access backend (frontend served on host at port 80)
-      FRONTEND_URL: "http://localhost:80"
+      # FRONTEND_URL will be read from .env file - should match the URL where browser accesses the app
     ports:
       - "3001:3001"
     depends_on:
