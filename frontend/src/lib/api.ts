@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getToken } from './auth'; // Import the getToken function
+import { getToken, logout } from './auth'; // Import the getToken and logout functions
 
 // Prefer a build-time Vite variable `VITE_API_HOST` (e.g. https://api.example.com or http://backend:3001)
 // If present, use it and append /api. Fall back to VITE_API_BASE_URL for backward compatibility, then to localhost.
@@ -30,6 +30,23 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle 401 errors (invalid/expired tokens)
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      // Token is invalid or user no longer exists - force logout
+      console.warn('[API] 401 Unauthorized - logging out user');
+      logout();
+      // Redirect to login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
     return Promise.reject(error);
   }
 );
