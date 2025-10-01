@@ -16,5 +16,13 @@
       "tag": "0001_lyrical_pestilence",
       "breakpoints": true
     }
+    ,
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1758783000000,
+      "tag": "0002_create_users_table",
+      "breakpoints": true
+    }
   ]
 }
