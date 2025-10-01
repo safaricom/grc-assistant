@@ -118,3 +118,17 @@ export const updateProfile = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Failed to update profile' });
   }
 };
+
+export const getCurrentProfile = async (req: Request, res: Response) => {
+  const sessionUser = req.user as { id?: string };
+  if (!sessionUser?.id) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const userFromDb = await db.query.users.findFirst({ where: eq(users.id, sessionUser.id) });
+    if (!userFromDb) return res.status(404).json({ error: 'User not found' });
+    const { passwordHash, ...safe } = userFromDb as any;
+    return res.json(safe);
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

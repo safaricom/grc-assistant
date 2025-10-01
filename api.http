@@ -1,4 +1,6 @@
-@baseUrl = http://localhost:3001/api
+@prodUrl = http://ec2-34-253-237-129.eu-west-1.compute.amazonaws.com:3001/api
+@localUrl = http://localhost:3001/api
+@baseUrl = {{localUrl}}
 @authToken = ""
 
 ###

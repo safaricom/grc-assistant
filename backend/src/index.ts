@@ -38,6 +38,27 @@ app.use('/api/users', userRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/documents', documentRoutes);
 
+// Health endpoint: minimal DB check to confirm server & DB connectivity
+import { pool } from './lib/db';
+
+// Shared health check handler used for both /health and /api/health
+const healthHandler = async (_req: Request, res: Response) => {
+  try {
+    // simple query to ensure DB is responsive
+    if (pool) {
+      await pool.query('SELECT 1');
+    }
+    return res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('Health check failed:', err);
+    return res.status(500).json({ status: 'error', error: String(err) });
+  }
+};
+
+app.get('/health', healthHandler);
+// Compatibility alias: expose the same health check under /api/health
+app.get('/api/health', healthHandler);
+
 app.get('/', (req: Request, res: Response) => {
   res.send('GRC Assistant API is running!');
 });
